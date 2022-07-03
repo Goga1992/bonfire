@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+option go_package = "bonfire/transcode";
+
+import "google/protobuf/empty.proto";
+
+message StartVideoSlotRequest
+{
+  string sink_hostname = 1;
+  repeated uint32 sink_ports = 2; // TODO: port to resolutions
+}
+
+message VideoSlotInfo
+{
+  string id = 1;
+  string hostname = 2;
+  uint32 port = 3;
+}
+
+message SetSlotBranchActiveRequest
+{
+  string slot_id = 1;
+  string name = 2;
+  bool active = 3;
+}
+
+message ForceKeyFrameRequest
+{
+  string slot_id = 1;
+  string name = 2;
+}
+
+message StopVideoSlotRequest
+{
+  string slot_id = 1;
+}
+
+service VideoScaler
+{
+  rpc StartVideoSlot(StartVideoSlotRequest) returns (VideoSlotInfo);
+  rpc SetSlotBranchActive(SetSlotBranchActiveRequest) returns (google.protobuf.Empty);
+  rpc ForceKeyFrame(ForceKeyFrameRequest) returns (google.protobuf.Empty);
+  rpc StopVideoSlot(StopVideoSlotRequest) returns (google.protobuf.Empty);
+}

@@ -1,0 +1,7 @@
+[generators]
+cmake_find_package
+
+[requires]
+spdlog/1.10.0
+grpc/1.47.0
+boost/1.79.0

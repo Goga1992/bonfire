@@ -1,0 +1,1 @@
+gst-launch-1.0 -e filesrc location=/workdir/src/cpp/app/videoscaler/scripts/example_x264.mp4  ! qtdemux ! h264parse ! rtph264pay ! multiudpsink clients="127.0.0.1:$1"

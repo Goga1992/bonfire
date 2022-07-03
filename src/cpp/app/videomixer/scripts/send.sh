@@ -1,0 +1,1 @@
+gst-launch-1.0 -e filesrc location=/workdir/example.mp4  ! decodebin ! x264enc ! rtph264pay ! multiudpsink clients="127.0.0.1:40004"

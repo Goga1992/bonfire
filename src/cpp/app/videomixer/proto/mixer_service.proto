@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+message StartVideoSlotRequest
+{
+  string room_id = 1;
+  string sink_hostname = 2;
+  uint32 sink_port = 3;
+}
+
+message VideoSlotInfo
+{
+  string id = 1;
+  string hostname = 2;
+  uint32 port = 3;
+}
+
+message StopVideoSlotRequest
+{
+  string slot_id = 1;
+}
+
+service VideoMixer
+{
+  rpc StartVideoSlot(StartVideoSlotRequest) returns (VideoSlotInfo);
+  rpc StopVideoSlot(StopVideoSlotRequest) returns (google.protobuf.Empty);
+}

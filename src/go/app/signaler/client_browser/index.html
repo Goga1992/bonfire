@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset="utf-8">
+    <style type="text/css">
+      video {
+        object-fit: cover;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h3> Local Video </h3>
+    <video id="localVideo" width="200" height="200" overflow="hidden" ; autoplay muted></video> <br />
+
+    <h3> Remote Video </h3>
+    <div id="remoteVideos"></div> <br />
+
+    <h3> Logs </h3>
+    <div id="logs"></div>
+
+    <h3> Audio </h3>
+    <div id="root"></div>
+
+  </body>
+
+  <script>
+    function getUserMediaConstraints() {
+      return {
+        "audio": true,
+        "video": true,
+        // "video": {
+        //   "mandatory": {
+        //     "minWidth": "640",
+        //     "maxWidth": "640",
+        //     "minHeight": "360",
+        //     "maxHeight": "360",
+        //   },
+        //   "optional": []
+        // }
+      };
+    }
+
+    navigator.mediaDevices.getUserMedia(getUserMediaConstraints())
+      .then(stream => {
+        latest_stats = { 'width': 0, 'height': 0 }
+        current_layout = {}
+
+        let pc = new RTCPeerConnection()
+        RESOLUTIONS = ['Medium', 'Low']
+        pc.ontrack = function (event) {
+          if (event.track.kind === 'audio') {
+            console.log(event.track.id)
+            event.track.muted = false
+            event.track.enabled = true
+            console.log(event.track.getCapabilities())
+            console.log(event.track.getSettings().channelCount)
+            let el = document.createElement(event.track.kind)
+            el.autoplay = true
+            el.controls = true
+
+            const btn = document.createElement('BUTTON');
+            const textLabel = document.createTextNode('Play');
+
+            btn.appendChild(textLabel)
+            document.getElementById('root').appendChild(btn);
+            document.getElementById('root').appendChild(el);
+
+            const mockedPromise = new Promise((resolve, reject) => {
+              setTimeout(() => {
+                return resolve(event.streams[0]);
+              }, 500);
+            })
+
+            btn.onclick = (e) => {
+              mockedPromise.then(src => {
+                el.srcObject = event.streams[0];
+                el.play();
+              })
+            }
+            return
+          }
+
+          // const interval = setInterval(() => {
+          //   // current_layout[event.transceiver.mid] = RESOLUTIONS[Math.floor(Math.random() * RESOLUTIONS.length)];
+          //   current_layout[event.transceiver.mid] = "High"
+          // }, 10000)
+
+          // const other_interval = setInterval(() => {
+          //   pc.getStats(event.track).then(incoming_stats => {
+          //     console.log(incoming_stats.frameWidth)
+          //     console.log(incoming_stats.frameHeight)
+          //   })
+          // }, 3000)
+
+          let el = document.createElement(event.track.kind)
+          el.srcObject = event.streams[0]
+          el.autoplay = true
+          el.controls = true
+          el.setAttribute("overflow", "hidden")
+          document.getElementById('remoteVideos').appendChild(el)
+
+          el.addEventListener('loadedmetadata', function () {
+            console.log('Remote video videoWidth: ' + this.videoWidth +
+              'px,  videoHeight: ' + this.videoHeight + 'px');
+          });
+
+          el.onresize = function () {
+            console.log('Remote video size changed to ' +
+              el.videoWidth + 'x' + el.videoHeight);
+          };
+
+          // event.track.onmute = function (event) {
+          //   el.play()
+          // }
+
+          event.streams[0].onremovetrack = ({ track }) => {
+            if (el.parentNode) {
+              el.parentNode.removeChild(el)
+              // clearInterval(interval)
+              // clearInterval(other_interval)
+            }
+          }
+        }
+
+        const interval = setInterval(() => {
+          const promise = pc.getStats(stream.getVideoTracks()[0]).then(stats => {
+            stats.forEach(stat => {
+              if (stat.type == 'track') {
+                latest_stats.width = stat.frameWidth
+                latest_stats.height = stat.frameHeight
+              }
+            })
+          })
+        }, 5000)
+
+        pc.onnegotiationneeded = function (event) {
+          console.log("Negotiation needed")
+        }
+
+        intervals = {}
+
+        pc.ondatachannel = function (event) {
+          if (event.channel.label.startsWith('resolution_changed')) {
+            const sendChannel = event.channel;
+            console.log(event.channel.label)
+            sendChannel.onmessage = e => console.log(`Message from '${sendChannel.label}': '${e.data}'`)
+
+            const interval = setInterval(() => {
+              // var latest_sent_stats = {}
+              // if ((latest_sent_stats.width != latest_stats.width || latest_sent_stats.height != latest_stats.height)
+              //   && latest_stats.width != 0 && latest_stats.height != 0) {
+              sendChannel.send(JSON.stringify(latest_stats))
+              // latest_sent_stats = latest_stats
+              // }
+            }, 5000);
+          }
+          if (event.channel.label.startsWith('resolution_wanted')) {
+            const sendChannel = event.channel;
+            console.log(event.channel.label)
+            sendChannel.onmessage = e => console.log(`Message from '${sendChannel.label}': '${e.data}'`)
+
+            const interval = setInterval(() => {
+              const latest_sent_layout = {}
+              // if (JSON.stringify(current_layou) != JSON.stringify(latest_sent_layout)) {
+              sendChannel.send(JSON.stringify(current_layout))
+              // }
+            }, 1000);
+          }
+          if (event.channel.label.startsWith('participants_change')) {
+            const sendChannel = event.channel;
+            console.log(event.channel.label)
+
+            sendChannel.onmessage = e => {
+              console.log(`Message from '${sendChannel.label}': '${e.data}'`)
+              const current_participants = JSON.parse(new TextDecoder().decode(e.data))
+              const peerID = current_participants[0]
+              const action = current_participants[1]
+              console.log(peerID, action)
+              console.log(current_participants)
+              if (action == 'enter') {
+                // current_layout[peerID] = RESOLUTIONS[Math.floor(Math.random() * RESOLUTIONS.length)];
+                current_layout[peerID] = "Low"
+
+                intervals[peerID] = setInterval(() => {
+                  // current_layout[peerID] = RESOLUTIONS[Math.floor(Math.random() * RESOLUTIONS.length)];
+                  current_layout[peerID] = "Low"
+                }, 20000)
+
+              } else {
+                delete current_layout[peerID]
+                delete intervals[peerID]
+              }
+            }
+          }
+        }
+
+        document.getElementById('localVideo').srcObject = stream
+        stream.getTracks().forEach(track => pc.addTrack(track, stream))
+
+        let ws = new WebSocket("{{.}}")
+        pc.onicecandidate = e => {
+          if (!e.candidate) {
+            return
+          }
+
+          ws.send(JSON.stringify({ event: 'candidate', data: JSON.stringify(e.candidate) }))
+        }
+
+        ws.onclose = function (evt) {
+          window.alert("Websocket has closed")
+        }
+
+        ws.onmessage = function (evt) {
+          let msg = JSON.parse(evt.data)
+          if (!msg) {
+            return console.log('failed to parse msg')
+          }
+
+          switch (msg.event) {
+            case 'offer':
+              let offer = JSON.parse(msg.data)
+              if (!offer) {
+                return console.log('failed to parse answer')
+              }
+              console.log(offer)
+              pc.setRemoteDescription(offer)
+              pc.createAnswer().then(answer => {
+                pc.setLocalDescription(answer)
+                ws.send(JSON.stringify({ event: 'answer', data: JSON.stringify(answer) }))
+              })
+              return
+
+            case 'candidate':
+              let candidate = JSON.parse(msg.data)
+              if (!candidate) {
+                return console.log('failed to parse candidate')
+              }
+
+              pc.addIceCandidate(candidate)
+          }
+        }
+
+        ws.onerror = function (evt) {
+          console.log("ERROR: " + evt.data)
+        }
+      }).catch(window.alert)
+  </script>
+
+</html>

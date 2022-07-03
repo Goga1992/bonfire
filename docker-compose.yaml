@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  audiomixer:
+    build:
+      context: .
+      target: audiomixer
+    network_mode: host
+  videoscaler:
+    build:
+      context: .
+      target: videoscaler
+    environment:
+      - CAPACITY=100
+    network_mode: host
+  signaler:
+    build:
+      context: .
+      target: signaler
+    depends_on:
+      - audiomixer
+      - videoscaler
+    environment:
+      - VIDEOSCALER_ADDR=127.0.0.1:7000
+      - AUDIOMIXER_ADDR=127.0.0.1:7001
+    network_mode: host

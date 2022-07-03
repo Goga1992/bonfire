@@ -1,0 +1,1 @@
+bon_add_library(bon_sync)
