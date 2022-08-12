@@ -14,9 +14,10 @@ import (
 
 	"sync/atomic"
 
+	"signaler/relay/internal"
+
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
-	"signaler/relay/internal"
 )
 
 type VideoSlot struct {
@@ -194,7 +195,7 @@ func (slot *VideoSlot) SetBranchActive(resolution string, active bool) {
 	slot.videoScalerClient.SetSlotBranchActive(context.Background(), request)
 }
 
-func (slot *VideoSlot) GetTrack(resolution string) chan *rtp.Packet {
+func (slot *VideoSlot) getTrack(resolution string) chan *rtp.Packet {
 	return slot.output[resolution].PacketsChan
 }
 
@@ -330,7 +331,7 @@ func (slot *VideoSlot) outputWorker(listener *internal.OutputReceiver, name stri
 func (s *VideoSlot) broadcastWorker(b *broadcaster) {
 	defer close(b.workerDone)
 
-	packetsChan := s.GetTrack(b.resolution)
+	packetsChan := s.getTrack(b.resolution)
 
 	for !s.stopWorkers.Load().(bool) {
 		select {
@@ -356,8 +357,8 @@ func (s *VideoSlot) broadcastWorker(b *broadcaster) {
 }
 
 func (s *VideoSlot) GetPacketsChan(resolution string, peerID string) (chan *rtp.Packet, bool) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
 
 	sink, ok := s.subs[resolution][peerID]
 	if !ok {
@@ -370,7 +371,7 @@ func (s *VideoSlot) GetPacketsChan(resolution string, peerID string) (chan *rtp.
 func (s *VideoSlot) ForceKeyFrame(resolution string) error {
 	request := &transcode.ForceKeyFrameRequest{
 		SlotId: s.videoScalerSlotInfo.Id,
-		Name: resolution,
+		Name:   resolution,
 	}
 
 	_, err := s.videoScalerClient.ForceKeyFrame(context.Background(), request)

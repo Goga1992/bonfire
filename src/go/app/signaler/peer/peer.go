@@ -173,8 +173,8 @@ func (p *Peer) prepareOutcomingTracks() error {
 
 	dummyAudioTrack, err := webrtc.NewTrackLocalStaticRTP(
 		webrtc.RTPCodecCapability{
-			MimeType: webrtc.MimeTypeOpus,
-			Channels: 1,
+			MimeType:  webrtc.MimeTypeOpus,
+			Channels:  1,
 			ClockRate: 90000,
 		},
 		strconv.Itoa(OUT_VIDEOS_NUM),
@@ -235,13 +235,13 @@ func (p *Peer) OutcomingAudioTrackChan(trackIdx int) chan *rtp.Packet {
 func (p *Peer) outcomingTrackWorker(out *outcomingTrack) {
 	var currTimestamp uint32
 	for i := uint16(0); ; i++ {
-		var packet *rtp.Packet
+		var packetRef *rtp.Packet
 		var more bool
 
 		for {
 			out.srcMtx.Lock()
 			select {
-			case packet, more = <-out.src:
+			case packetRef, more = <-out.src:
 			case <-time.After(1 * time.Second):
 				out.srcMtx.Unlock()
 				continue
@@ -258,14 +258,19 @@ func (p *Peer) outcomingTrackWorker(out *outcomingTrack) {
 			continue
 		}
 
+		packet := *packetRef
+
 		// // Timestamp on the packet is really a diff, so add it to current
 		currTimestamp += packet.Timestamp
 		packet.Timestamp = currTimestamp
+		// if out.sink.Track().Kind() == webrtc.RTPCodecTypeVideo {
+		// 	bon_log.Debug.Printf("PID: %s, TS: %d", p.ID(), packet.Timestamp)
+		// }
 
 		// Keep an increasing sequence number
 		packet.SequenceNumber = i
 		// Write out the packet, ignoring closed pipe if nobody is listening
-		err := out.sink.Track().(*webrtc.TrackLocalStaticRTP).WriteRTP(packet)
+		err := out.sink.Track().(*webrtc.TrackLocalStaticRTP).WriteRTP(&packet)
 		if err != nil {
 			if errors.Is(err, io.ErrClosedPipe) {
 				// The peerConnection has been closed.
@@ -279,6 +284,9 @@ func (p *Peer) outcomingTrackWorker(out *outcomingTrack) {
 
 func (p *Peer) ReplaceVideoTrack(newSrc chan *rtp.Packet, oldTrackIdx int) {
 	out := p.outcomingVideoTracks[oldTrackIdx]
+	if out.src == newSrc {
+		return
+	}
 
 	out.srcMtx.Lock()
 	out.src = newSrc
@@ -287,6 +295,9 @@ func (p *Peer) ReplaceVideoTrack(newSrc chan *rtp.Packet, oldTrackIdx int) {
 
 func (p *Peer) ReplaceAudioTrack(newSrc chan *rtp.Packet, oldTrackIdx int) {
 	out := p.outcomingAudioTracks[oldTrackIdx]
+	if out.src == newSrc {
+		return
+	}
 
 	out.srcMtx.Lock()
 	out.src = newSrc
@@ -405,7 +416,7 @@ func (p *Peer) ResolutionWantedChan() chan map[string]string {
 
 func (p *Peer) RequestKeyFrame() {
 	for _, receiver := range p.conn.GetReceivers() {
-		if receiver.Track() == nil {
+		if receiver.Track() == nil || receiver.Track().Kind() != webrtc.RTPCodecTypeVideo {
 			continue
 		}
 

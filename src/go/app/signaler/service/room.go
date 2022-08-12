@@ -119,6 +119,9 @@ func (r *Room) DispatchKeyFrame() {
 
 	for _, peer := range r.peers {
 		peer.RequestKeyFrame()
+		r.videoRelay.ForceKeyFrame(peer.ID(), "Low")
+		r.videoRelay.ForceKeyFrame(peer.ID(), "Medium")
+		r.videoRelay.ForceKeyFrame(peer.ID(), "High")
 	}
 }
 
