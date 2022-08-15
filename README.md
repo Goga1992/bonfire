@@ -13,6 +13,9 @@ Bonfire is a video-conferencing platform for those who miss the good old Paleoli
 * Scaling to thousands of participants
 * Easy integration of custom media-processing
 
+## Roadmap
+The project is in active development, you can refer to the [roadmap](https://github.com/kisasexypantera94/bonfire/issues/1) for the current status.
+
 ## Setup
 Start service:
 ```console
